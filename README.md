@@ -20,7 +20,7 @@ The application keeps the boundary deliberately small:
 route -> service -> database
 ```
 
-There is no worker, queue, Redis, frontend, authentication layer, object storage, or FITS processing in this scaffold.
+There is no worker, queue, Redis, frontend, authentication layer, or object storage in this scaffold. SPHEREx FITS cutouts are processed in memory.
 
 ## Repository layout
 
@@ -50,8 +50,27 @@ README.md
 - `POST /examples`
 - `GET /examples`
 - `GET /examples/{id}`
+- `GET /spherex?ra_deg=210.80227&dec_deg=54.34895&fake_color_theme=plasma`
 
 `/health` checks only the API process. `/db-health` executes `SELECT 1` against PostgreSQL.
+
+`/spherex` calls `app.services.spherex_service.query_spherex()` and returns an
+`image/png` response for the earliest overlapping spectral image. Required query
+parameters are `ra_deg` (0 inclusive to 360 exclusive) and `dec_deg` (-90 to 90).
+Optional parameters are `cutout_size_i` (degrees, default 0.05, greater than 0 and
+at most 1) and `fake_color_theme` (Matplotlib colormap, default `gray`).
+It returns 422 for invalid input, 404 for no coverage, and 502 for IRSA retrieval
+errors. No FITS or PNG output files are saved. This endpoint returns one image;
+it does not yet provide a timeline or video.
+
+For example, save the response locally with:
+
+```bash
+curl --fail "http://127.0.0.1:8000/spherex?ra_deg=210.80227&dec_deg=54.34895&fake_color_theme=plasma" -o output.png
+```
+
+The query and cutout download require access to IRSA. Cutout parameters follow
+the [IRSA SPHEREx cutout service](https://irsa.ipac.caltech.edu/data/SPHEREx/docs/cutout_tool.html).
 
 ## Local setup
 
