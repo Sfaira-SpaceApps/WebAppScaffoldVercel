@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -33,9 +36,9 @@ def get_spherex(
     return Response(content=png, media_type="image/png")
 
 
-@router.get("/")
-def root() -> dict[str, str]:
-    return {"message": "FastAPI + PostgreSQL scaffold"}
+@router.get("/", response_class=FileResponse, include_in_schema=False)
+def root() -> FileResponse:
+    return FileResponse(Path(__file__).resolve().parents[1] / "static" / "index.html")
 
 
 @router.get("/health")

@@ -1,6 +1,6 @@
 # FastAPI + PostgreSQL Scaffold for Vercel
 
-Minimal backend scaffold using FastAPI, SQLAlchemy 2.x, psycopg 3, Alembic, Pydantic Settings, and pytest.
+FastAPI backend with a simple SPHEREx image explorer, SQLAlchemy 2.x, psycopg 3, Alembic, Pydantic Settings, and pytest.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ The application keeps the boundary deliberately small:
 route -> service -> database
 ```
 
-There is no worker, queue, Redis, frontend, authentication layer, or object storage in this scaffold. SPHEREx FITS cutouts are processed in memory.
+The frontend is a responsive HTML page served by FastAPI at `/`. Its Load image button calls `/spherex` on the same origin and displays the PNG response, with loading and error messages. No Node.js build or separate frontend deployment is required. SPHEREx FITS cutouts are processed in memory.
 
 ## Repository layout
 
@@ -33,6 +33,8 @@ app/
   db/
   schemas/
   services/
+  static/
+    index.html
 alembic/
 tests/
 alembic.ini
@@ -44,7 +46,7 @@ README.md
 
 ## API
 
-- `GET /`
+- `GET /` (HTML image explorer)
 - `GET /health`
 - `GET /db-health`
 - `POST /examples`
@@ -151,8 +153,10 @@ uvicorn app.main:app --reload
 Then open:
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/
 ```
+
+Enter right ascension and declination in degrees, optionally adjust the cutout size and color theme, then click **Load image**. IRSA retrieval may take a minute; some positions have no coverage. The image explorer and `/spherex` do not require a running database. Interactive API documentation remains available at `/docs`.
 
 The Uvicorn command is for local development only. Vercel loads the FastAPI ASGI application directly.
 
@@ -166,15 +170,19 @@ The basic tests do not require a live PostgreSQL server. `/db-health` and CRUD i
 
 ## Deploy to Vercel
 
-Vercel currently detects FastAPI applications in standard entrypoints including `app/main.py`. This scaffold therefore does not include an `/api` wrapper or `vercel.json` rewrite.
+Vercel detects FastAPI applications in standard entrypoints including `app/main.py`, as described in its [FastAPI deployment guide](https://vercel.com/docs/frameworks/backend/fastapi). This scaffold therefore does not include an `/api` wrapper or `vercel.json` rewrite. The same deployment serves the HTML page and API.
 
 1. Push the repository to GitHub.
-2. Import the repository into Vercel.
-3. Add the following project environment variables:
+2. Import the repository into Vercel with the repository root as the Root Directory. Use the detected FastAPI framework. Leave build command and output directory overrides unset; there is no frontend build step. Dependencies are declared in `pyproject.toml`.
+3. Add the following project environment variables (the database URL is needed only for database routes):
    - `DATABASE_URL`
    - `APP_ENV=production`
    - `LOG_LEVEL=INFO`
-4. Deploy.
+4. Deploy, then open `https://<your-project>.vercel.app/` and click **Load image**. Check `/health` for API availability and `/docs` for API documentation.
+
+Keep `app/static/index.html` in the repository; FastAPI serves it directly, and setuptools includes it as package data. Frontend requests use the relative `/spherex` URL, so no API base URL or CORS configuration is needed. Changes deployed from the connected Git branch update both the page and API.
+
+If image requests time out, inspect the Vercel function logs and the project's function duration settings: the request includes an IRSA query, FITS download, and PNG rendering. Deployment must also fit Vercel's Python function bundle limits, including the scientific Python dependencies. Deployment success and live IRSA coverage must be verified in your Vercel project.
 
 Use a managed PostgreSQL service; PostgreSQL does not run inside this Vercel application.
 

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SPHEREx image explorer</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #101722; color: #edf2f7; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 48px 20px; }
+    main { max-width: 900px; margin: auto; }
+    h1 { font-size: clamp(1.8rem, 5vw, 2.8rem); margin-bottom: 12px; }
+    p { color: #b6c5d7; line-height: 1.6; }
+    form, .viewer { background: #192434; border: 1px solid #354459; border-radius: 16px; padding: 24px; margin-top: 24px; }
+    .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 20px; }
+    label { display: grid; gap: 8px; font-size: .9rem; }
+    input, select, button { font: inherit; padding: 12px; border-radius: 8px; }
+    input, select { width: 100%; color: inherit; background: #101722; border: 1px solid #53667f; }
+    button { margin-top: 24px; background: #9cd9ff; color: #101722; border: 0; font-weight: 650; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    :focus-visible { outline: 3px solid #9cd9ff; outline-offset: 4px; }
+    #status { min-height: 1.6em; }
+    #status[data-error="true"] { color: #ffb5b5; }
+    .viewer { text-align: center; }
+    img { display: block; max-width: 100%; height: auto; margin: auto; border-radius: 8px; }
+    [hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>SPHEREx image explorer</h1>
+    <p>Enter a sky position to retrieve the earliest overlapping SPHEREx spectral image.</p>
+    <form id="query-form">
+      <div class="fields">
+        <label>Right ascension (°)
+          <input name="ra_deg" type="number" min="0" max="359.99999999999994" step="any" value="210.80227" required>
+        </label>
+        <label>Declination (°)
+          <input name="dec_deg" type="number" min="-90" max="90" step="any" value="54.34895" required>
+        </label>
+        <label>Cutout size (°)
+          <input name="cutout_size_i" type="number" min="0.000001" max="1" step="any" value="0.05" required>
+        </label>
+        <label>Color theme
+          <select name="fake_color_theme">
+            <option value="gray">Gray</option>
+            <option value="plasma">Plasma</option>
+            <option value="viridis">Viridis</option>
+            <option value="inferno">Inferno</option>
+            <option value="magma">Magma</option>
+          </select>
+        </label>
+      </div>
+      <button type="submit" id="load-button">Load image</button>
+    </form>
+    <p id="status" role="status" aria-live="polite">Choose a position, then load an image. Retrieval may take a minute.</p>
+    <section class="viewer" id="viewer" aria-label="SPHEREx image result" aria-busy="false">
+      <p id="placeholder">Your spectral image will appear here.</p>
+      <img id="result" alt="SPHEREx spectral image for the requested sky position" hidden>
+    </section>
+  </main>
+  <script>
+    const form = document.getElementById('query-form');
+    const button = document.getElementById('load-button');
+    const status = document.getElementById('status');
+    const viewer = document.getElementById('viewer');
+    const result = document.getElementById('result');
+    const placeholder = document.getElementById('placeholder');
+    let imageUrl;
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      button.disabled = true;
+      viewer.setAttribute('aria-busy', 'true');
+      status.dataset.error = 'false';
+      status.textContent = 'Retrieving image from IRSA… This may take a minute.';
+      result.hidden = true;
+      placeholder.hidden = false;
+      placeholder.textContent = 'Loading spectral image…';
+      try {
+        const params = new URLSearchParams(new FormData(form));
+        const response = await fetch(`/spherex?${params}`, { headers: { Accept: 'image/png' } });
+        if (!response.ok) {
+          let message = `Image request failed (${response.status}). Please try again.`;
+          const body = await response.json().catch(() => null);
+          if (typeof body?.detail === 'string') message = body.detail;
+          else if (Array.isArray(body?.detail)) message = body.detail.map(item => item.msg).join('; ');
+          throw new Error(message);
+        }
+        if (!response.headers.get('content-type')?.includes('image/png')) {
+          throw new Error('The server did not return a PNG image. Please try again.');
+        }
+        const blob = await response.blob();
+        if (imageUrl) URL.revokeObjectURL(imageUrl);
+        imageUrl = URL.createObjectURL(blob);
+        result.src = imageUrl;
+        await result.decode();
+        result.hidden = false;
+        placeholder.hidden = true;
+        status.textContent = 'Image loaded.';
+      } catch (error) {
+        status.dataset.error = 'true';
+        status.textContent = error.message || 'Unable to load the image. Please try again.';
+        placeholder.textContent = 'No image to display. Adjust the position or try again.';
+      } finally {
+        button.disabled = false;
+        viewer.setAttribute('aria-busy', 'false');
+      }
+    });
+    window.addEventListener('pagehide', () => {
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+    });
+  </script>
+</body>
+</html>

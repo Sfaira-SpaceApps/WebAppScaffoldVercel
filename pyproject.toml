@@ -31,6 +31,9 @@ dev = [
 include = ["app*"]
 exclude = ["alembic*", "tests*"]
 
+[tool.setuptools.package-data]
+app = ["static/*.html"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
