@@ -8,6 +8,11 @@ version = "0.1.0"
 description = "Minimal FastAPI + PostgreSQL scaffold for Vercel"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "astropy>=7,<8",
+    "matplotlib>=3.10,<4",
+    "numpy>=2,<3",
+    "pyvo>=1.6,<2",
+    "requests>=2.32,<3",
     "alembic>=1.14,<2",
     "fastapi>=0.129,<1",
     "psycopg[binary]>=3.2,<4",
@@ -25,6 +30,9 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["app*"]
 exclude = ["alembic*", "tests*"]
+
+[tool.setuptools.package-data]
+app = ["static/*.html"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
