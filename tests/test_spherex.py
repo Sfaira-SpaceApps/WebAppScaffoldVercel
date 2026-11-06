@@ -1,5 +1,5 @@
 from io import BytesIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -52,15 +52,14 @@ def test_service_renders_fits_in_memory() -> None:
             fits.ImageHDU(np.arange(100, dtype=np.float32).reshape(10, 10), name="IMAGE"),
         ]).writeto(buffer)
         fits_bytes = buffer.getvalue()
-    response = MagicMock()
-    response.__enter__.return_value = response
-    response.content = fits_bytes
+    open_fits = fits.open
     with patch.object(spherex_service.pyvo.dal, "TAPService") as tap, \
-         patch.object(spherex_service.requests.Session, "get", return_value=response):
+         patch.object(spherex_service.fits, "open", side_effect=lambda *args, **kwargs: open_fits(BytesIO(fits_bytes))) as fetch:
         tap.return_value.search.return_value.to_table.return_value = Table({
             "download_url": ["https://irsa.ipac.caltech.edu/example.fits"],
         })
         png = spherex_service.query_spherex(**PARAMS)
+        fetch.assert_called_once_with("https://irsa.ipac.caltech.edu/example.fits", cache=False)
     assert png.startswith(b"\x89PNG\r\n\x1a\n")
 
 
